@@ -24,13 +24,22 @@
 #define BOARD sverio_paperboard_v1
 
 // choose a screen type, ED060XC3 or ED097TC2
-#define EPAPER_MODEL ED060XC3
 //#define EPAPER_MODEL ED097TC2
+#define EPAPER_MODEL ED060XC3
 
-#define EPD_WHITE 0xF0
+// choose VCOM voltage
+// 100 seems better for 6" screens
+//#define VCOM_VOLTAGE 1500
+#define VCOM_VOLTAGE 100
+
+// map the colors
+// full 16 color scale is below: 
+// 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+// 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
+#define EPD_WHITE 0xFF
 #define EPD_BLACK 0x00
-#define EPD_LIGHTGREY 0xA0
-#define EPD_DARKGREY 0x80
+#define EPD_LIGHTGREY 0x44
+#define EPD_DARKGREY 0x99
 
 ESP32AnalogRead adc;
 #define vBatPin ADC1_GPIO1_CHANNEL
@@ -50,7 +59,7 @@ uint64_t timestampNow = 1;
 bool firstScreen = true;
 
 const char *host = "cdn.zivyobraz.eu";
-const char *firmware = "2.2";
+const char *firmware = "2.3";
 const String wifiPassword = "zivyobraz";
 
 int dispWidth = 0;
@@ -537,11 +546,9 @@ void readBitmapData(WiFiClient &client)
           break;
         case 0x2:
           color = EPD_DARKGREY;
-          color = EPD_BLACK;
           break;
         case 0x3:
           color = EPD_LIGHTGREY;
-          color = EPD_BLACK;
           break;
         }
 
@@ -756,8 +763,7 @@ void setup()
   }
 
   epd_init(&BOARD, &EPAPER_MODEL, EPD_LUT_64K);
-  epd_set_vcom(100);
-  //epd_set_vcom(1500);
+  epd_set_vcom(VCOM_VOLTAGE);
 
   // Konfigurace GPIO2 jako výstup
   pinMode(2, OUTPUT);
