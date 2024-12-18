@@ -38,7 +38,7 @@
 // 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
 #define EPD_WHITE 0xFF
 #define EPD_BLACK 0x00
-#define EPD_LIGHTGREY 0x44
+#define EPD_LIGHTGREY 0xCC
 #define EPD_DARKGREY 0x99
 
 ESP32AnalogRead adc;
@@ -59,7 +59,7 @@ uint64_t timestampNow = 1;
 bool firstScreen = true;
 
 const char *host = "cdn.zivyobraz.eu";
-const char *firmware = "2.3";
+const char *firmware = "2.4";
 const String wifiPassword = "zivyobraz";
 
 int dispWidth = 0;
@@ -545,10 +545,10 @@ void readBitmapData(WiFiClient &client)
           color = EPD_BLACK;
           break;
         case 0x2:
-          color = EPD_DARKGREY;
+          color = EPD_LIGHTGREY;
           break;
         case 0x3:
-          color = EPD_LIGHTGREY;
+          color = EPD_DARKGREY;
           break;
         }
 
