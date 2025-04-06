@@ -27,6 +27,9 @@
 //#define EPAPER_MODEL ED097TC2
 #define EPAPER_MODEL ED060XC3
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
 // choose VCOM voltage
 // 100 seems better for 6" screens
 //#define VCOM_VOLTAGE 1500
@@ -38,15 +41,19 @@
 // 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
 #define EPD_WHITE 0xFF
 #define EPD_BLACK 0x00
-#define EPD_LIGHTGREY 0xCC
-#define EPD_DARKGREY 0x99
+#define EPD_LIGHTGREY 0xEE // 2
+#define EPD_LIGHTGREY2 0xDD // 4 
+#define EPD_LIGHTGREY3 0xCC // 5
+#define EPD_DARKGREY 0xBB // 3
+#define EPD_DARKGREY2 0x99 // 6
+#define EPD_DARKGREY3 0x55 // 7
 
 ESP32AnalogRead adc;
 #define vBatPin ADC1_GPIO1_CHANNEL
 #define dividerRatio 2.7507665
 
 EpdiyHighlevelState hl;
-static const char *defined_color_type = "4G";
+static const char *defined_color_type = "8G";
 
 uint64_t defaultDeepSleepTime = 2;
 uint64_t deepSleepTime = defaultDeepSleepTime;
@@ -59,7 +66,7 @@ uint64_t timestampNow = 1;
 bool firstScreen = true;
 
 const char *host = "cdn.zivyobraz.eu";
-const char *firmware = "2.4";
+const char *firmware = "2.5";
 const String wifiPassword = "zivyobraz";
 
 int dispWidth = 0;
@@ -346,7 +353,7 @@ const String getWifiSSID()
 
 bool createHttpRequest(WiFiClient &client, bool &connStatus, bool checkTimestamp, const String &extraParams)
 {
-  String url = "index.php?mac=" + WiFi.macAddress() + (checkTimestamp ? "&timestamp_check=1" : "") + "&rssi=" + String(rssi) + "&ssid=" + ssid + "&v=" + String(d_volt) + "&x=" + String(dispWidth) + "&y=" + String(dispHeight) + "&c=" + String(defined_color_type) + "&fw=" + String(firmware) + extraParams;
+  String url = "index.php?mac=" + WiFi.macAddress() + (checkTimestamp ? "&timestamp_check=1" : "") + "&rssi=" + String(rssi) + "&ssid=" + ssid + "&v=" + String(d_volt) + "&x=" + String(dispWidth) + "&y=" + String(dispHeight) + "&c=" + String(defined_color_type) + "&fw=" + String(firmware) + "&Sverio=" + TOSTRING(EPAPER_MODEL) + extraParams;
 
   Serial.print("connecting to ");
   Serial.println(host);
@@ -538,18 +545,30 @@ void readBitmapData(WiFiClient &client)
 
         switch (pixel_color)
         {
-        case 0x0:
-          color = EPD_WHITE;
-          break;
-        case 0x1:
-          color = EPD_BLACK;
-          break;
-        case 0x2:
-          color = EPD_LIGHTGREY;
-          break;
-        case 0x3:
-          color = EPD_DARKGREY;
-          break;
+          case 0x0:
+            color = EPD_WHITE;
+            break;
+          case 0x1:
+            color = EPD_BLACK;
+            break;
+          case 0x2:
+            color = EPD_LIGHTGREY;
+            break;
+          case 0x3:
+            color = EPD_DARKGREY;
+            break;
+          case 0x4:
+            color = EPD_LIGHTGREY2;
+            break;
+          case 0x5:
+            color = EPD_LIGHTGREY3;
+            break;
+          case 0x6:
+            color = EPD_DARKGREY2;
+            break;
+          case 0x7:
+            color = EPD_DARKGREY3;
+            break;
         }
 
         for (uint8_t i = 0; i < count - 1; i++)
