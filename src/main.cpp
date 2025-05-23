@@ -280,40 +280,11 @@ void WiFiInit(bool enableAP)
 
   if (enableAP)
   {
+    // Pouze pokud explicitně chceme AP režim (nemáme credentials)
     wm.setConfigPortalTimeout(300);
     wm.setAPCallback(configModeCallback);
-  }
-
-  // Autoconnect without launching AP if enableAP is false
-  if (enableAP)
-  {
     wm.autoConnect(hostname.c_str(), wifiPassword.c_str());
   }
-  else
-  {
-    if (!wm.getWiFiIsSaved())
-    {
-      Serial.println("WiFi credentials missing, skipping WiFi connection.");
-    }
-    else
-    {
-      // Only attempt connection, do not start AP
-      WiFi.begin();
-      if (WiFi.waitForConnectResult() != WL_CONNECTED)
-      {
-        Serial.println("WiFi connection failed.");
-      }
-      else
-      {
-        Serial.println("Connected to WiFi.");
-      }
-    }
-  }
-
-  // wm.setConfigPortalTimeout(300);
-  // wm.setAPCallback(configModeCallback);
-  // wm.setSaveConfigCallback(onWiFiConfigured);
-  // wm.autoConnect(hostname.c_str(), wifiPassword.c_str());
 }
 
 int8_t getWifiStrength()
@@ -796,40 +767,57 @@ void setup()
   printf("Dimensions after rotation, width: %d height: %d\n\n", dispWidth, dispHeight);
   esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
 
-  // Zkontroluje příčinu probuzení
-  if (wakeup_reason == ESP_SLEEP_WAKEUP_TIMER)
-  {
-    // Při probuzení časovačem se pokusí připojit k Wi-Fi bez AP režimu
-    Serial.println("Woke up from timer, attempting WiFi autoconnect...");
-    WiFiInit(false); // `false` znamená, že AP režim nebude spuštěn
-    if (WiFi.status() != WL_CONNECTED)
-    {
-      Serial.println("WiFi connection failed, going back to sleep.");
-      esp_sleep_enable_timer_wakeup(deepSleepTime * 60 * 1000000);
-      esp_task_wdt_delete(NULL); // Disable the watchdog before sleep
-      delay(100);
-      esp_deep_sleep_start();
+  // Zkontroluj, jestli máme uložené WiFi credentials
+  WiFiManager wm;
+  bool hasCredentials = wm.getWiFiIsSaved();
+  
+  if (hasCredentials) {
+    Serial.println("WiFi credentials found, attempting connection...");
+    
+    // Pokusíme se připojit bez AP režimu
+    WiFi.mode(WIFI_STA);
+    WiFi.begin();
+    
+    // Čekáme na připojení max 10 sekund
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+      delay(500);
+      attempts++;
+      Serial.print(".");
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("\nWiFi connected successfully!");
+      
+      // Získáme data pro server
+      esp_task_wdt_reset();
+      d_volt = getBatteryVoltage();
+      rssi = getWifiStrength();
+      ssid = getWifiSSID();
+
+      // Stáhneme a zobrazíme obraz
+      WiFiClient client;
+      readBitmapData(client);
+    } else {
+      Serial.println("\nWiFi connection failed, keeping previous image and going to sleep.");
+      // NEKRESLÍME NIC - zůstává předchozí obraz na e-paperu
+    }
+  } else {
+    // Nemáme credentials, spustíme AP konfiguraci
+    Serial.println("No WiFi credentials found, starting AP configuration...");
+    WiFiInit(true); // Spustí AP režim pro konfiguraci
+    
+    // Po dokončení konfigurace zkusíme připojení
+    if (WiFi.status() == WL_CONNECTED) {
+      esp_task_wdt_reset();
+      d_volt = getBatteryVoltage();
+      rssi = getWifiStrength();
+      ssid = getWifiSSID();
+
+      WiFiClient client;
+      readBitmapData(client);
     }
   }
-  else
-  {
-    // Jinak se chová standardně (pro reset, probuzení tlačítkem atd.)
-    Serial.println("Woke up from reset or external wakeup, starting normal WiFi behavior...");
-    Serial.println(wakeup_reason);
-    WiFiInit(true); // `true` znamená, že AP režim bude spuštěn, pokud je připojení neúspěšné
-  }
-
-  // WiFiInit();
-  esp_task_wdt_reset(); // Reset watchdog timer periodically
-
-  d_volt = getBatteryVoltage();
-  rssi = getWifiStrength();
-  ssid = getWifiSSID();
-
-  WiFiClient client;
-
-  bool connection_ok = false;
-  readBitmapData(client);
 
   epd_poweroff();
   epd_deinit();
