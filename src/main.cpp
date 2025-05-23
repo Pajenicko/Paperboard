@@ -205,15 +205,18 @@ void centeredTextInv(const char *text, int x, int y, const EpdFont *font, uint8_
 // End AP and start deepsleep
 void apTimeoutCallback(void *arg)
 {
-  uint8_t *fb = epd_hl_get_framebuffer(&hl);
-  epd_poweron();
-  epd_fullclear(&hl, epd_ambient_temperature());
-  centeredText("The device is in sleep mode.", dispWidth / 2, dispHeight / 2 - 20, &OpenSans16, fb);
-  centeredText("Press RESET to wake it up", dispWidth / 2, dispHeight / 2 + 20, &OpenSans16, fb);
-  checkError(epd_hl_update_screen(&hl, MODE_EPDIY_WHITE_TO_GL16, epd_ambient_temperature()));
-  epd_poweroff();
-  esp_sleep_enable_timer_wakeup(5 * 60 * 1000000);
-  esp_deep_sleep_start();
+  if (!wm.getWiFiIsSaved())
+  {
+    uint8_t *fb = epd_hl_get_framebuffer(&hl);
+    epd_poweron();
+    epd_fullclear(&hl, epd_ambient_temperature());
+    centeredText("The device is in sleep mode.", dispWidth / 2, dispHeight / 2 - 20, &OpenSans16, fb);
+    centeredText("Press RESET to wake it up", dispWidth / 2, dispHeight / 2 + 20, &OpenSans16, fb);
+    checkError(epd_hl_update_screen(&hl, MODE_EPDIY_WHITE_TO_GL16, epd_ambient_temperature()));
+    epd_poweroff();
+    esp_sleep_enable_timer_wakeup(5 * 60 * 1000000);
+    esp_deep_sleep_start();
+  }
 }
 
 void configModeCallback(WiFiManager *myWiFiManager)
@@ -224,35 +227,37 @@ void configModeCallback(WiFiManager *myWiFiManager)
   const String urlWiki = "https://wiki.zivyobraz.eu";
   timestamp = 0;
 
-  uint8_t *fb = epd_hl_get_framebuffer(&hl);
+  if (!wm.getWiFiIsSaved())
+  {
+    uint8_t *fb = epd_hl_get_framebuffer(&hl);
 
-  EpdRect blackRect = {0, 0, dispWidth, 90};
-  epd_fill_rect(blackRect, 0x0, fb);
-  centeredTextInv("No Wi-Fi configured OR connection lost", dispWidth / 2, 35, &OpenSans16, fb);
-  centeredTextInv("Retries in a few minutes if lost.", dispWidth / 2, 71, &OpenSans16, fb);
-  centeredText("To setup or change Wi-Fi configuration", dispWidth / 2, 120, &OpenSans16, fb);
-  centeredText("(with mobile data turned off):", dispWidth / 2, 150, &OpenSans16, fb);
-  centeredText("1) Connect to this AP:", dispWidth / 4, (dispHeight / 2) - 50, &OpenSans16, fb);
-  centeredText("2) Open in web browser:", dispWidth * 3 / 4, (dispHeight / 2) - 50, &OpenSans16, fb);
-  drawQrCode(qrString.c_str(), 4, (dispHeight / 2) + 40, dispWidth / 4, 4, fb);
-  epd_draw_vline(dispWidth / 2 - 1, (dispHeight / 2) - 60, 230, 0x0, fb);
-  epd_draw_vline(dispWidth / 2, (dispHeight / 2) - 60, 230, 0x0, fb);
-  drawQrCode(urlWeb.c_str(), 4, (dispHeight / 2) + 40, dispWidth * 3 / 4, 4, fb);
-  centeredText(("SSID: " + hostname).c_str(), dispWidth / 4, (dispHeight / 2) + 140, &OpenSans16, fb);
-  centeredText(("Password: " + wifiPassword).c_str(), dispWidth / 4, (dispHeight / 2) + 170, &OpenSans16, fb);
-  centeredText(urlWeb.c_str(), dispWidth * 3 / 4, (dispHeight / 2) + 140, &OpenSans16, fb);
+    EpdRect blackRect = {0, 0, dispWidth, 90};
+    epd_fill_rect(blackRect, 0x0, fb);
+    centeredTextInv("No Wi-Fi configured OR connection lost", dispWidth / 2, 35, &OpenSans16, fb);
+    centeredTextInv("Retries in a few minutes if lost.", dispWidth / 2, 71, &OpenSans16, fb);
+    centeredText("To setup or change Wi-Fi configuration", dispWidth / 2, 120, &OpenSans16, fb);
+    centeredText("(with mobile data turned off):", dispWidth / 2, 150, &OpenSans16, fb);
+    centeredText("1) Connect to this AP:", dispWidth / 4, (dispHeight / 2) - 50, &OpenSans16, fb);
+    centeredText("2) Open in web browser:", dispWidth * 3 / 4, (dispHeight / 2) - 50, &OpenSans16, fb);
+    drawQrCode(qrString.c_str(), 4, (dispHeight / 2) + 40, dispWidth / 4, 4, fb);
+    epd_draw_vline(dispWidth / 2 - 1, (dispHeight / 2) - 60, 230, 0x0, fb);
+    epd_draw_vline(dispWidth / 2, (dispHeight / 2) - 60, 230, 0x0, fb);
+    drawQrCode(urlWeb.c_str(), 4, (dispHeight / 2) + 40, dispWidth * 3 / 4, 4, fb);
+    centeredText(("SSID: " + hostname).c_str(), dispWidth / 4, (dispHeight / 2) + 140, &OpenSans16, fb);
+    centeredText(("Password: " + wifiPassword).c_str(), dispWidth / 4, (dispHeight / 2) + 170, &OpenSans16, fb);
+    centeredText(urlWeb.c_str(), dispWidth * 3 / 4, (dispHeight / 2) + 140, &OpenSans16, fb);
 
-  EpdRect footerRect = {0, dispHeight - 60, dispWidth, 60};
-  epd_fill_rect(footerRect, 0x0, fb);
-  centeredTextInv(("Documentation: " + urlWiki).c_str(), dispWidth / 2, dispHeight - 22, &OpenSans16, fb);
+    EpdRect footerRect = {0, dispHeight - 60, dispWidth, 60};
+    epd_fill_rect(footerRect, 0x0, fb);
+    centeredTextInv(("Documentation: " + urlWiki).c_str(), dispWidth / 2, dispHeight - 22, &OpenSans16, fb);
 
-  epd_poweron();
-  epd_clear();
-  checkError(epd_hl_update_screen(&hl, MODE_EPDIY_WHITE_TO_GL16, epd_ambient_temperature()));
-  epd_poweroff();
+    epd_poweron();
+    epd_clear();
+    checkError(epd_hl_update_screen(&hl, MODE_EPDIY_WHITE_TO_GL16, epd_ambient_temperature()));
+    epd_poweroff();
 
-  firstScreen = false;
-
+    firstScreen = false;
+  }
   // Run the AP timer (5mins)
   esp_timer_create_args_t ap_timeout_timer_args = {
       .callback = &apTimeoutCallback,
@@ -280,11 +285,40 @@ void WiFiInit(bool enableAP)
 
   if (enableAP)
   {
-    // Pouze pokud explicitně chceme AP režim (nemáme credentials)
     wm.setConfigPortalTimeout(300);
     wm.setAPCallback(configModeCallback);
+  }
+
+  // Autoconnect without launching AP if enableAP is false
+  if (enableAP)
+  {
     wm.autoConnect(hostname.c_str(), wifiPassword.c_str());
   }
+  else
+  {
+    if (!wm.getWiFiIsSaved())
+    {
+      Serial.println("WiFi credentials missing, skipping WiFi connection.");
+    }
+    else
+    {
+      // Only attempt connection, do not start AP
+      WiFi.begin();
+      if (WiFi.waitForConnectResult() != WL_CONNECTED)
+      {
+        Serial.println("WiFi connection failed.");
+      }
+      else
+      {
+        Serial.println("Connected to WiFi.");
+      }
+    }
+  }
+
+  // wm.setConfigPortalTimeout(300);
+  // wm.setAPCallback(configModeCallback);
+  // wm.setSaveConfigCallback(onWiFiConfigured);
+  // wm.autoConnect(hostname.c_str(), wifiPassword.c_str());
 }
 
 int8_t getWifiStrength()
@@ -767,57 +801,40 @@ void setup()
   printf("Dimensions after rotation, width: %d height: %d\n\n", dispWidth, dispHeight);
   esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
 
-  // Zkontroluj, jestli máme uložené WiFi credentials
-  WiFiManager wm;
-  bool hasCredentials = wm.getWiFiIsSaved();
-  
-  if (hasCredentials) {
-    Serial.println("WiFi credentials found, attempting connection...");
-    
-    // Pokusíme se připojit bez AP režimu
-    WiFi.mode(WIFI_STA);
-    WiFi.begin();
-    
-    // Čekáme na připojení max 10 sekund
-    int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-      delay(500);
-      attempts++;
-      Serial.print(".");
-    }
-    
-    if (WiFi.status() == WL_CONNECTED) {
-      Serial.println("\nWiFi connected successfully!");
-      
-      // Získáme data pro server
-      esp_task_wdt_reset();
-      d_volt = getBatteryVoltage();
-      rssi = getWifiStrength();
-      ssid = getWifiSSID();
-
-      // Stáhneme a zobrazíme obraz
-      WiFiClient client;
-      readBitmapData(client);
-    } else {
-      Serial.println("\nWiFi connection failed, keeping previous image and going to sleep.");
-      // NEKRESLÍME NIC - zůstává předchozí obraz na e-paperu
-    }
-  } else {
-    // Nemáme credentials, spustíme AP konfiguraci
-    Serial.println("No WiFi credentials found, starting AP configuration...");
-    WiFiInit(true); // Spustí AP režim pro konfiguraci
-    
-    // Po dokončení konfigurace zkusíme připojení
-    if (WiFi.status() == WL_CONNECTED) {
-      esp_task_wdt_reset();
-      d_volt = getBatteryVoltage();
-      rssi = getWifiStrength();
-      ssid = getWifiSSID();
-
-      WiFiClient client;
-      readBitmapData(client);
+  // Zkontroluje příčinu probuzení
+  if (wakeup_reason == ESP_SLEEP_WAKEUP_TIMER)
+  {
+    // Při probuzení časovačem se pokusí připojit k Wi-Fi bez AP režimu
+    Serial.println("Woke up from timer, attempting WiFi autoconnect...");
+    WiFiInit(false); // `false` znamená, že AP režim nebude spuštěn
+    if (WiFi.status() != WL_CONNECTED)
+    {
+      Serial.println("WiFi connection failed, going back to sleep.");
+      esp_sleep_enable_timer_wakeup(deepSleepTime * 60 * 1000000);
+      esp_task_wdt_delete(NULL); // Disable the watchdog before sleep
+      delay(100);
+      esp_deep_sleep_start();
     }
   }
+  else
+  {
+    // Jinak se chová standardně (pro reset, probuzení tlačítkem atd.)
+    Serial.println("Woke up from reset or external wakeup, starting normal WiFi behavior...");
+    Serial.println(wakeup_reason);
+    WiFiInit(true); // `true` znamená, že AP režim bude spuštěn, pokud je připojení neúspěšné
+  }
+
+  // WiFiInit();
+  esp_task_wdt_reset(); // Reset watchdog timer periodically
+
+  d_volt = getBatteryVoltage();
+  rssi = getWifiStrength();
+  ssid = getWifiSSID();
+
+  WiFiClient client;
+
+  bool connection_ok = false;
+  readBitmapData(client);
 
   epd_poweroff();
   epd_deinit();
