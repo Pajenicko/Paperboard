@@ -18,6 +18,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <epdiy.h>
+// TWI/I2C library
+#include <Wire.h>
 
 #include "OpenSans16.h"
 #define WAVEFORM EPD_BUILTIN_WAVEFORM
@@ -48,6 +50,12 @@
 #define EPD_DARKGREY2 0x99 // 6
 #define EPD_DARKGREY3 0x55 // 7
 
+// uncomment if one of the sensors will be connected
+// supported sensors: SHT40/41/45, SCD40/41, BME280 
+#define SENSOR
+#define PIN_SDA 39
+#define PIN_SCL 40
+
 ESP32AnalogRead adc;
 #define vBatPin ADC1_GPIO1_CHANNEL
 #define dividerRatio 2.7507665
@@ -73,6 +81,22 @@ int dispWidth = 0;
 int dispHeight = 0;
 
 static esp_timer_handle_t ap_timeout_timer;
+
+// supported sensors
+#ifdef SENSOR
+  // SHT40/41/45
+  #include "Adafruit_SHT4x.h"
+Adafruit_SHT4x sht4 = Adafruit_SHT4x();
+
+  // SCD40/41
+  #include "SparkFun_SCD4x_Arduino_Library.h"
+SCD4x SCD4(SCD4x_SENSOR_SCD41);
+
+  // BME280
+  #include <Adafruit_Sensor.h>
+  #include <Adafruit_BME280.h>
+Adafruit_BME280 bme;
+#endif
 
 void checkError(enum EpdDrawError err)
 {
@@ -353,7 +377,17 @@ const String getWifiSSID()
 
 bool createHttpRequest(WiFiClient &client, bool &connStatus, bool checkTimestamp, const String &extraParams)
 {
-  String url = "index.php?mac=" + WiFi.macAddress() + (checkTimestamp ? "&timestamp_check=1" : "") + "&rssi=" + String(rssi) + "&ssid=" + ssid + "&v=" + String(d_volt) + "&x=" + String(dispWidth) + "&y=" + String(dispHeight) + "&c=" + String(defined_color_type) + "&fw=" + String(firmware) + "&Sverio=" + TOSTRING(EPAPER_MODEL) + extraParams;
+  String url = "index.php?mac=" + WiFi.macAddress() +
+                (checkTimestamp ? "&timestamp_check=1" : "") +
+                "&rssi=" + String(rssi) + 
+                "&ssid=" + ssid + 
+                "&v=" + String(d_volt) + 
+                "&x=" + String(dispWidth) + 
+                "&y=" + String(dispHeight) + 
+                "&c=" + String(defined_color_type) + 
+                "&fw=" + String(firmware) + 
+                "&Sverio=" + TOSTRING(EPAPER_MODEL) + 
+                extraParams; 
 
   Serial.print("connecting to ");
   Serial.println(host);
@@ -458,7 +492,60 @@ bool createHttpRequest(WiFiClient &client, bool &connStatus, bool checkTimestamp
   return true;
 }
 
-void readBitmapData(WiFiClient &client)
+#ifdef SENSOR
+int readSensorsVal(float &sen_temp, int &sen_humi, int &sen_pres)
+{
+  Serial.println("Reading sensors...");
+
+  // Check for SHT40 OR SHT41 OR SHT45
+  if (sht4.begin())
+  {
+    Serial.println("SHT4x FOUND");
+    sht4.setPrecision(SHT4X_LOW_PRECISION);
+    sht4.setHeater(SHT4X_NO_HEATER);
+
+    sensors_event_t hum, temp;
+    sht4.getEvent(&hum, &temp);
+
+    sen_temp = temp.temperature;
+    sen_humi = hum.relative_humidity;
+    return 1;
+  }
+
+  // Check for BME280
+  if (bme.begin())
+  {
+    Serial.println("BME280 FOUND");
+
+    sen_temp = bme.readTemperature();
+    sen_humi = bme.readHumidity();
+    sen_pres = bme.readPressure() / 100.0F;
+    return 2;
+  }
+
+  // Check for SCD40 OR SCD41
+  if (SCD4.begin(false, true, false))
+  {
+    Serial.println("SCD4x FOUND");
+    SCD4.measureSingleShot();
+
+    while (SCD4.readMeasurement() == false) // wait for a new data (approx 30s)
+    {
+      Serial.println("Waiting for first measurement...");
+      delay(1000);
+    }
+
+    sen_temp = SCD4.getTemperature();
+    sen_humi = SCD4.getHumidity();
+    sen_pres = SCD4.getCO2();
+    return 3;
+  }
+
+  return 0;
+}
+#endif
+
+void readBitmapData(WiFiClient &client, String extraParams)
 {
   bool connection_ok = false;
   bool valid = false;
@@ -474,7 +561,7 @@ void readBitmapData(WiFiClient &client)
   uint8_t *fb = epd_hl_get_framebuffer(&hl);
 
   uint32_t startTime = millis();
-  if (!createHttpRequest(client, connection_ok, true, ""))
+  if (!createHttpRequest(client, connection_ok, true, extraParams))
     return;
 
   uint16_t header = read16(client);
@@ -768,6 +855,41 @@ void readBitmapData(WiFiClient &client)
 void setup()
 {
   Serial.begin(115200);
+
+  String extraParams = "";
+
+  // Measuring temperature and humidity?
+  #ifdef SENSOR
+    Wire.begin(PIN_SDA, PIN_SCL);
+
+    delay(50);
+    Serial.println("Going for readSensorVal...");
+
+    float temperature;
+    int humidity;
+    int pressure;
+
+    uint8_t sen_ret = readSensorsVal(temperature, humidity, pressure);
+
+    if (sen_ret)
+    {
+      extraParams = "&temp=" + String(temperature) + "&hum=" + String(humidity);
+
+      switch (sen_ret)
+      {
+        case 2:
+          extraParams += "&pres=" + String(pressure); // BME280
+          break;
+        case 3:
+          extraParams += "&co2=" + String(pressure); // SCD4x
+          break;
+      }
+    }
+    Serial.println("Done...");
+
+    Wire.end();
+  #endif
+
   delay(100);
   esp_task_wdt_init(60, true); // Re-enable watchdog with 5-second timeout
   esp_task_wdt_add(NULL);      // Add current task to the watchdog
@@ -829,7 +951,7 @@ void setup()
   WiFiClient client;
 
   bool connection_ok = false;
-  readBitmapData(client);
+  readBitmapData(client, extraParams);
 
   epd_poweroff();
   epd_deinit();
