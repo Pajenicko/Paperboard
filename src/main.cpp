@@ -24,16 +24,16 @@
 #define BOARD sverio_paperboard_v1
 
 // choose a screen type, ED060XC3 or ED097TC2
-//#define EPAPER_MODEL ED097TC2
-#define EPAPER_MODEL ED060XC3
+#define EPAPER_MODEL ED097TC2
+//#define EPAPER_MODEL ED060XC3
 
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
 // choose VCOM voltage
 // 100 seems better for 6" screens
-//#define VCOM_VOLTAGE 1500
-#define VCOM_VOLTAGE 100
+#define VCOM_VOLTAGE 1500
+//#define VCOM_VOLTAGE 100
 
 // map the colors
 // full 16 color scale is below: 
@@ -205,6 +205,7 @@ void centeredTextInv(const char *text, int x, int y, const EpdFont *font, uint8_
 // End AP and start deepsleep
 void apTimeoutCallback(void *arg)
 {
+  WiFiManager wm;
   if (!wm.getWiFiIsSaved())
   {
     uint8_t *fb = epd_hl_get_framebuffer(&hl);
@@ -227,6 +228,7 @@ void configModeCallback(WiFiManager *myWiFiManager)
   const String urlWiki = "https://wiki.zivyobraz.eu";
   timestamp = 0;
 
+  WiFiManager wm;
   if (!wm.getWiFiIsSaved())
   {
     uint8_t *fb = epd_hl_get_framebuffer(&hl);
@@ -834,8 +836,10 @@ void setup()
   WiFiClient client;
 
   bool connection_ok = false;
-  readBitmapData(client);
-
+  if (WiFi.status() = WL_CONNECTED)
+  {
+    readBitmapData(client);
+  }
   epd_poweroff();
   epd_deinit();
 
