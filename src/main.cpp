@@ -52,7 +52,7 @@
 
 // uncomment if one of the sensors will be connected
 // supported sensors: SHT40/41/45, SCD40/41, BME280 
-#define SENSOR
+//#define SENSOR
 #define PIN_SDA 39
 #define PIN_SCL 40
 
