@@ -26,16 +26,23 @@
 #define BOARD sverio_paperboard_v1
 
 // choose a screen type, ED060XC3 or ED097TC2
-//#define EPAPER_MODEL ED097TC2
-#define EPAPER_MODEL ED060XC3
+#ifndef EPAPER_MODEL
+  #define EPAPER_MODEL ED097TC2
+  //#define EPAPER_MODEL ED060XC3
+#endif
+
+// choose VCOM voltage
+#if defined(EPAPER_MODEL) && (EPAPER_MODEL == ED060XC3)
+  // 100 seems better for 6" screens
+  #define VCOM_VOLTAGE 100
+#endif
+
+#if defined(EPAPER_MODEL) && (EPAPER_MODEL == ED097TC2)
+  #define VCOM_VOLTAGE 1500
+#endif
 
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
-
-// choose VCOM voltage
-// 100 seems better for 6" screens
-//#define VCOM_VOLTAGE 1500
-#define VCOM_VOLTAGE 100
 
 // map the colors
 // full 16 color scale is below: 
@@ -52,7 +59,7 @@
 
 // uncomment if one of the sensors will be connected
 // supported sensors: SHT40/41/45, SCD40/41, BME280 
-//#define SENSOR
+// #define SENSOR
 #define PIN_SDA 39
 #define PIN_SCL 40
 
